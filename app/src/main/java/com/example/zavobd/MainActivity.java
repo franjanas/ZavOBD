@@ -34,10 +34,8 @@ public class MainActivity extends AppCompatActivity {
     ListView devicesListView;
 
     BluetoothAdapter bluetoothAdapter;
-    // NEW CODE
     ArrayList<DeviceItem> deviceList;
     ArrayAdapter<DeviceItem> deviceListAdapter;
-    // NEW CODE: This is the modern way to handle permission requests.
     private ActivityResultLauncher<String[]> requestMultiplePermissionsLauncher;
 
     @Override
@@ -48,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
         scanButton = findViewById(R.id.btn_scan_devices);
         devicesListView = findViewById(R.id.list_view_devices);
 
-        // NEW CODE: Initialize the permission launcher.
+        // Initialize the permission launcher.
         // It defines what happens after the user responds to the permission dialog.
         requestMultiplePermissionsLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestMultiplePermissions(),
@@ -84,7 +82,6 @@ public class MainActivity extends AppCompatActivity {
                 checkAndRequestPermissions();
             }
         });
-        // ADD THIS NEW CODE BLOCK
         devicesListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -98,7 +95,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
-    // ADD THIS ENTIRE NEW METHOD
     private void connectToDevice(String macAddress) {
         // IMPORTANT: Bluetooth connection must be done in a background thread.
         new Thread(() -> {
@@ -117,7 +113,6 @@ public class MainActivity extends AppCompatActivity {
                 socket.connect();
                 Log.d(TAG, "Connection successful!");
 
-                // --- THIS IS THE MODIFIED PART ---
                 // Instead of closing the socket, we store it in our manager
                 BluetoothConnectionManager.getInstance().setSocket(socket);
 
@@ -126,7 +121,6 @@ public class MainActivity extends AppCompatActivity {
                     Intent intent = new Intent(MainActivity.this, DashboardActivity.class);
                     startActivity(intent);
                 });
-                // --- END OF MODIFIED PART ---
 
             } catch (IOException e) {
                 Log.e(TAG, "Connection failed: " + e.getMessage());
@@ -135,7 +129,7 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
-    // NEW CODE: A new method to centralize the permission logic.
+    //A new method to centralize the permission logic.
     private void checkAndRequestPermissions() {
         // We only need to ask for permissions on Android 12 (API 31) and above.
         // On older versions, the permissions from the Manifest are enough.
@@ -161,7 +155,7 @@ public class MainActivity extends AppCompatActivity {
     private void listPairedDevices() {
         deviceList.clear();
 
-        // MODIFIED: We add one final check here, but the main check is now in checkAndRequestPermissions()
+        //We add one final check here, but the main check is now in checkAndRequestPermissions()
         // This is mainly for safety.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {

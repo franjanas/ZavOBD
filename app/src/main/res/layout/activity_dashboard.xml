@@ -1,42 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="20dp"
     android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="16dp"
     tools:context=".DashboardActivity">
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Vehicle Dashboard"
-        android:textSize="24sp"
-        android:textStyle="bold"/>
 
     <TextView
         android:id="@+id/tv_connection_status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:text="Status: Connecting..."
         android:textSize="18sp"
-        android:text="Status: Connecting..."/>
+        android:textStyle="bold" />
+
+    <com.github.anastr.speedviewlib.SpeedView
+        android:id="@+id/speed_view"
+        android:layout_width="250dp"
+        android:layout_height="250dp"
+        android:layout_marginTop="16dp"
+        app:sv_maxSpeed="240"
+        app:sv_speedTextSize="24sp"
+        app:sv_unit="km/h"
+        app:sv_unitTextSize="16sp"
+        app:sv_withTremble="false" />
+
+    <com.github.anastr.speedviewlib.AwesomeSpeedometer
+        android:id="@+id/rpm_gauge"
+        android:layout_width="250dp"
+        android:layout_height="250dp"
+        android:layout_marginTop="16dp"
+        app:sv_maxSpeed="8"
+        app:sv_minSpeed="0"
+        app:sv_speedTextFormat="FLOAT"
+        app:sv_speedTextSize="20sp"
+        app:sv_tickNumber="9"
+        app:sv_unit="x1000 RPM"
+        app:sv_withTremble="false" />
 
     <TextView
-        android:id="@+id/tv_speed"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:textSize="22sp"
-        tools:text="Speed: 0 km/h" />
-
-    <TextView
-        android:id="@+id/tv_rpm"
+        android:id="@+id/tv_coolant"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:textSize="22sp"
-        tools:text="RPM: 0" />
+        tools:text="Coolant: 0 °C" />
 
 </LinearLayout>

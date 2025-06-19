@@ -1,23 +1,28 @@
 package com.example.zavobd;
 
 import androidx.appcompat.app.AppCompatActivity;
-
 import android.bluetooth.BluetoothSocket;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
+
+// These imports are for the gauge library. If they are red, you need to sync your Gradle file.
+import com.github.anastr.speedviewlib.AwesomeSpeedometer;
+import com.github.anastr.speedviewlib.SpeedView;
 
 public class DashboardActivity extends AppCompatActivity {
 
     private static final String TAG = "ZavOBD_Dashboard";
 
-    private TextView tvConnectionStatus, tvSpeed, tvRpm;
+    // Updated UI element declarations
+    private TextView tvConnectionStatus, tvCoolant;
+    private SpeedView speedView;
+    private AwesomeSpeedometer rpmGauge;
+
     private CommunicationThread communicationThread;
 
     @Override
@@ -25,15 +30,19 @@ public class DashboardActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_dashboard);
 
+        // Find all the UI elements by their ID from the XML layout
         tvConnectionStatus = findViewById(R.id.tv_connection_status);
-        tvSpeed = findViewById(R.id.tv_speed);
-        tvRpm = findViewById(R.id.tv_rpm);
+        tvCoolant = findViewById(R.id.tv_coolant);
+        speedView = findViewById(R.id.speed_view);
+        rpmGauge = findViewById(R.id.rpm_gauge);
 
+        // Get the live socket from our connection manager
         BluetoothSocket socket = BluetoothConnectionManager.getInstance().getSocket();
 
+        // Check if the socket is valid and connected
         if (socket != null && socket.isConnected()) {
             tvConnectionStatus.setText("Status: Connected");
-            // START THE MAGIC: Create and start our communication thread
+            // If everything is okay, create and start our communication thread
             communicationThread = new CommunicationThread(socket);
             communicationThread.start();
         } else {
@@ -45,17 +54,14 @@ public class DashboardActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // IMPORTANT: Stop the thread and close the connection when the activity is destroyed
+        // It's crucial to stop the background thread when the activity is destroyed
+        // to prevent memory leaks and keep the app stable.
         if (communicationThread != null) {
             communicationThread.cancel();
         }
-        // The manager will handle closing the socket itself if needed,
-        // but stopping the thread is our responsibility.
     }
 
-    // ####################################################################
-    // ## THE COMMUNICATION THREAD - V3 - BULLETPROOF INIT               ##
-    // ####################################################################
+    // This inner class handles all the background communication with the ELM327 adapter
     private class CommunicationThread extends Thread {
         private final BluetoothSocket socket;
         private final InputStream inputStream;
@@ -85,44 +91,52 @@ public class DashboardActivity extends AppCompatActivity {
                 sendCommand("ATE0\r");
                 Thread.sleep(500);
 
-                // --- THIS IS THE CRITICAL CHANGE ---
-                // We are no longer using ATSP0 (auto). We are manually setting it to 6 (CAN 11-bit).
+                // Manually setting protocol to 6 (CAN 11-bit), the most common modern protocol.
                 Log.d(TAG, "Manually setting protocol to 6 (CAN 11-bit)...");
                 sendCommand("ATSP6\r");
                 Thread.sleep(500);
 
-                // Send one test command to confirm it worked.
+                // Send a test command ("0100") to confirm the ECU is responsive on this protocol
                 sendCommand("0100\r");
                 String initResponse = readResponse();
                 Log.d(TAG, "Initial negotiation response: " + initResponse);
 
-                // A valid response will start with "4100"
+                // A valid response must contain "4100"
                 if (!initResponse.contains("4100")) {
                     Log.e(TAG, "Could not communicate with ECU on Protocol 6. Response: " + initResponse);
                     runOnUiThread(() -> tvConnectionStatus.setText("Status: ECU Failed (Proto 6)"));
-                    return; // Halting thread
+                    return; // Stop the thread
                 }
 
                 Log.i(TAG, "SUCCESS! ECU is responsive on Protocol 6. Starting data loop.");
                 runOnUiThread(() -> tvConnectionStatus.setText("Status: Live Data"));
 
-                // --- Step 2: Data Loop ---
+                // --- Step 2: Continuous Data Loop ---
                 while (!Thread.currentThread().isInterrupted()) {
+                    // --- Get Vehicle Speed ---
                     sendCommand("010D\r");
                     String speedResponse = readResponse();
-                    Log.d(TAG, "Raw Speed Response: " + speedResponse);
                     final int speed = parseSpeed(speedResponse);
 
+                    // --- Get Engine RPM ---
                     sendCommand("010C\r");
                     String rpmResponse = readResponse();
-                    Log.d(TAG, "Raw RPM Response: " + rpmResponse);
                     final int rpm = parseRpm(rpmResponse);
 
+                    // --- Get Engine Coolant Temperature ---
+                    sendCommand("0105\r");
+                    String coolantResponse = readResponse();
+                    final int coolantTemp = parseCoolantTemp(coolantResponse);
+
+                    // --- Update the UI ---
+                    // This must be done on the main UI thread.
                     runOnUiThread(() -> {
-                        tvSpeed.setText("Speed: " + speed + " km/h");
-                        tvRpm.setText("RPM: " + rpm);
+                        speedView.speedTo(speed); // Update the speedometer gauge
+                        rpmGauge.speedTo(rpm / 1000f); // Update the RPM gauge (divide by 1000)
+                        tvCoolant.setText("Coolant: " + coolantTemp + " °C"); // Update the text view
                     });
-                    Thread.sleep(500);
+
+                    Thread.sleep(500); // Pause before asking for the next set of data
                 }
 
             } catch (IOException | InterruptedException e) {
@@ -132,34 +146,31 @@ public class DashboardActivity extends AppCompatActivity {
         }
 
         private void sendCommand(String command) throws IOException {
+            // Clear any old data from the input stream before sending a new command
             while(inputStream.available() > 0) { inputStream.read(); }
             outputStream.write(command.getBytes());
             outputStream.flush();
         }
 
         private String readResponse() throws IOException, InterruptedException {
-            responseBuffer.setLength(0); // Clear the buffer
+            responseBuffer.setLength(0);
             long startTime = System.currentTimeMillis();
-
-            // Read until we see the '>' prompt or time out after 2 seconds
             while ((System.currentTimeMillis() - startTime) < 2000) {
                 if (inputStream.available() > 0) {
                     char c = (char) inputStream.read();
                     if (c == '>') {
-                        break; // End of response
+                        break;
                     }
                     responseBuffer.append(c);
                 } else {
-                    Thread.sleep(20); // Wait a bit for more data
+                    Thread.sleep(20);
                 }
             }
-            // Clean up the response: remove echoes, whitespace, etc.
             return responseBuffer.toString().replaceAll("\\s", "").replaceAll("\r", "").replaceAll("\n", "").replaceAll(">", "");
         }
 
 
         private int parseSpeed(String response) {
-            // Updated to look for 410D at the start of the string, which is more reliable with headers on
             if (response.startsWith("410D")) {
                 try {
                     String hexValue = response.substring(4, 6);
@@ -173,7 +184,6 @@ public class DashboardActivity extends AppCompatActivity {
         }
 
         private int parseRpm(String response) {
-            // Updated to look for 410C at the start of the string
             if (response.startsWith("410C")) {
                 try {
                     String hexValue = response.substring(4, 8);
@@ -182,6 +192,19 @@ public class DashboardActivity extends AppCompatActivity {
                     return ((a * 256) + b) / 4;
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to parse RPM: " + response, e);
+                    return 0;
+                }
+            }
+            return 0;
+        }
+
+        private int parseCoolantTemp(String response) {
+            if (response.startsWith("4105")) {
+                try {
+                    String hexValue = response.substring(4, 6);
+                    return Integer.parseInt(hexValue, 16) - 40;
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to parse coolant temp: " + response, e);
                     return 0;
                 }
             }
