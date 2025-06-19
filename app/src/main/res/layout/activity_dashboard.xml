@@ -13,40 +13,39 @@
         android:id="@+id/tv_connection_status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
         android:text="Status: Connecting..."
         android:textSize="18sp"
         android:textStyle="bold" />
 
-    <com.github.anastr.speedviewlib.SpeedView
-        android:id="@+id/speed_view"
-        android:layout_width="250dp"
-        android:layout_height="250dp"
-        android:layout_marginTop="16dp"
-        app:sv_maxSpeed="240"
-        app:sv_speedTextSize="24sp"
-        app:sv_unit="km/h"
-        app:sv_unitTextSize="16sp"
-        app:sv_withTremble="false" />
-
-    <com.github.anastr.speedviewlib.AwesomeSpeedometer
-        android:id="@+id/rpm_gauge"
-        android:layout_width="250dp"
-        android:layout_height="250dp"
-        android:layout_marginTop="16dp"
-        app:sv_maxSpeed="8"
-        app:sv_minSpeed="0"
-        app:sv_speedTextFormat="FLOAT"
-        app:sv_speedTextSize="20sp"
-        app:sv_tickNumber="9"
-        app:sv_unit="x1000 RPM"
-        app:sv_withTremble="false" />
-
-    <TextView
-        android:id="@+id/tv_coolant"
-        android:layout_width="wrap_content"
+    <!-- This Horizontal LinearLayout is the key to the new design -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:textSize="22sp"
-        tools:text="Coolant: 0 °C" />
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <!-- RPM Gauge on the left -->
+        <com.github.anastr.speedviewlib.AwesomeSpeedometer
+            android:id="@+id/rpm_gauge"
+            android:layout_width="0dp"
+            android:layout_height="280dp"
+            android:layout_weight="1"
+            app:sv_maxSpeed="8"
+            app:sv_minSpeed="0"
+            app:sv_unit="x1000 RPM"
+            app:sv_withTremble="false" />
+
+        <!-- Speedometer on the right -->
+        <com.github.anastr.speedviewlib.SpeedView
+            android:id="@+id/speed_view"
+            android:layout_width="0dp"
+            android:layout_height="280dp"
+            android:layout_weight="1"
+            app:sv_maxSpeed="240"
+            app:sv_unit="km/h"
+            app:sv_withTremble="false" />
+
+    </LinearLayout>
 
 </LinearLayout>

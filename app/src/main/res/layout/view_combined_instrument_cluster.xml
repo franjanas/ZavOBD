@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center">
+
+    <!-- The RPM Gauge will be in the background (drawn first) -->
+    <com.github.anastr.speedviewlib.AwesomeSpeedometer
+        android:id="@+id/rpm_gauge"
+        android:layout_width="320dp"
+        android:layout_height="320dp"
+        android:layout_gravity="center"
+        app:sv_maxSpeed="8"
+        app:sv_minSpeed="0"
+        app:sv_unit="x1000 RPM"
+        app:sv_withTremble="false" />
+
+    <!-- The Speedometer will be smaller and drawn on top -->
+    <com.github.anastr.speedviewlib.SpeedView
+        android:id="@+id/speed_view"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:layout_gravity="center"
+        app:sv_maxSpeed="240"
+        app:sv_unit="km/h"
+        app:sv_withTremble="false" />
+
+</FrameLayout>

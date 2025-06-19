@@ -116,9 +116,9 @@ public class MainActivity extends AppCompatActivity {
                 // Instead of closing the socket, we store it in our manager
                 BluetoothConnectionManager.getInstance().setSocket(socket);
 
-                // Now, start the DashboardActivity
+                // Now, start the DashboardSelectionActivity
                 runOnUiThread(() -> {
-                    Intent intent = new Intent(MainActivity.this, DashboardActivity.class);
+                    Intent intent = new Intent(MainActivity.this, DashboardSelectionActivity.class);
                     startActivity(intent);
                 });
 

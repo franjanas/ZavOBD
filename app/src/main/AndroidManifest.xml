@@ -18,6 +18,12 @@
         android:theme="@style/Theme.ZavOBD"
         tools:targetApi="31">
         <activity
+            android:name=".FuelStatsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".DashboardSelectionActivity"
+            android:exported="false" />
+        <activity
             android:name=".DashboardActivity"
             android:exported="false" />
         <activity
