@@ -1,56 +1,78 @@
 package com.example.zavobd;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
+
 import android.Manifest;
+import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothSocket;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Set;
-import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String TAG = "ZavOBD_Main";
+    private Button scanButton;
+    private ListView devicesListView;
+    private ProgressDialog progressDialog;
 
-    Button scanButton;
-    ListView devicesListView;
-
-    BluetoothAdapter bluetoothAdapter;
-    ArrayList<DeviceItem> deviceList;
-    ArrayAdapter<DeviceItem> deviceListAdapter;
-
+    private BluetoothAdapter bluetoothAdapter;
+    private ArrayList<DeviceItem> deviceList;
+    private ArrayAdapter<DeviceItem> deviceListAdapter;
     private ActivityResultLauncher<String[]> requestMultiplePermissionsLauncher;
+
+    private final BroadcastReceiver connectionReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (progressDialog != null && progressDialog.isShowing()) {
+                progressDialog.dismiss();
+            }
+
+            String action = intent.getAction();
+            if (ObdService.ACTION_CONNECTION_SUCCESS.equals(action)) {
+                Toast.makeText(MainActivity.this, "Connection Established", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(MainActivity.this, DashboardSelectionActivity.class));
+            } else if (ObdService.ACTION_CONNECTION_FAILURE.equals(action)) {
+                String errorMessage = intent.getStringExtra(ObdService.EXTRA_FAILURE_MESSAGE);
+                showErrorDialog(errorMessage);
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // --- THIS IS THE FIX ---
+        // These lines link the Java variables to the views in the XML layout.
         scanButton = findViewById(R.id.btn_scan_devices);
         devicesListView = findViewById(R.id.list_view_devices);
+        // --- END OF FIX ---
 
-        // --- NEW: Start with the device list hidden ---
         devicesListView.setVisibility(View.GONE);
         scanButton.setText("Show Paired Devices");
 
-        // Existing permission launcher logic...
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setMessage("Connecting to device...");
+        progressDialog.setCancelable(false);
+
         requestMultiplePermissionsLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestMultiplePermissions(),
                 permissions -> {
@@ -73,65 +95,52 @@ public class MainActivity extends AppCompatActivity {
         deviceListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, deviceList);
         devicesListView.setAdapter(deviceListAdapter);
 
-        // --- MODIFIED: Button now toggles visibility ---
         scanButton.setOnClickListener(v -> {
             if (devicesListView.getVisibility() == View.VISIBLE) {
-                // If list is visible, hide it
                 devicesListView.setVisibility(View.GONE);
                 scanButton.setText("Show Paired Devices");
             } else {
-                // If list is hidden, show it
-                checkAndRequestPermissions(); // This will call listPairedDevices if permission is granted
+                checkAndRequestPermissions();
             }
         });
 
         devicesListView.setOnItemClickListener((parent, view, position, id) -> {
             DeviceItem selectedDevice = deviceList.get(position);
-            Toast.makeText(MainActivity.this, "Connecting to " + selectedDevice.getDeviceName(), Toast.LENGTH_SHORT).show();
-            connectToDevice(selectedDevice.getDeviceAddress());
+            progressDialog.show();
+
+            Intent serviceIntent = new Intent(this, ObdService.class);
+            serviceIntent.putExtra(ObdService.EXTRA_DEVICE_ADDRESS, selectedDevice.getDeviceAddress());
+            serviceIntent.setAction(ObdService.ACTION_CONNECT);
+            startService(serviceIntent);
         });
     }
 
-    private void connectToDevice(String macAddress) {
-        new Thread(() -> {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                return; // Permission check
-            }
-            try {
-                BluetoothDevice device = bluetoothAdapter.getRemoteDevice(macAddress);
-                UUID sppUuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-                BluetoothSocket socket = device.createRfcommSocketToServiceRecord(sppUuid);
+    // NEW, STABLE CODE
+    @Override
+    protected void onResume() {
+        super.onResume();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ObdService.ACTION_CONNECTION_SUCCESS);
+        filter.addAction(ObdService.ACTION_CONNECTION_FAILURE);
 
-                Log.d(TAG, "Attempting to connect...");
-                socket.connect();
-                Log.d(TAG, "Connection successful!");
-
-                BluetoothConnectionManager.getInstance().setSocket(socket);
-
-                runOnUiThread(() -> {
-                    Intent intent = new Intent(MainActivity.this, DashboardSelectionActivity.class);
-                    startActivity(intent);
-                });
-
-            } catch (IOException e) {
-                Log.e(TAG, "Connection failed: " + e.getMessage());
-                // --- NEW: Show a "Try Again" dialog on failure ---
-                runOnUiThread(() -> showConnectionFailedDialog());
-            }
-        }).start();
+        // --- THIS IS THE FIX ---
+        // We add the required security flag as the third argument.
+        // ContextCompat handles checking the Android version for us.
+        ContextCompat.registerReceiver(this, connectionReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
     }
 
-    // --- NEW METHOD: Shows a user-friendly failure dialog ---
-    private void showConnectionFailedDialog() {
+    @Override
+    protected void onPause() {
+        super.onPause();
+        unregisterReceiver(connectionReceiver);
+    }
+
+    private void showErrorDialog(String message) {
         new AlertDialog.Builder(this)
                 .setTitle("Connection Failed")
-                .setMessage("Could not connect to the device. Please ensure the device is on and in range. A device power-cycle (unplug/replug) may be required.")
-                .setPositiveButton("Try Again", (dialog, which) -> {
-                    // Just dismisses the dialog, allowing user to tap a device again
-                    dialog.dismiss();
-                })
-                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
-                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setMessage(message)
+                .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
+                .create()
                 .show();
     }
 
@@ -154,7 +163,7 @@ public class MainActivity extends AppCompatActivity {
     private void listPairedDevices() {
         deviceList.clear();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            return; // Permission check
+            return;
         }
         Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
         if (pairedDevices.size() > 0) {
@@ -163,7 +172,6 @@ public class MainActivity extends AppCompatActivity {
                 deviceList.add(new DeviceItem(deviceName, device.getAddress()));
             }
             deviceListAdapter.notifyDataSetChanged();
-            // --- NEW: After getting devices, make the list visible ---
             devicesListView.setVisibility(View.VISIBLE);
             scanButton.setText("Hide Paired Devices");
         } else {

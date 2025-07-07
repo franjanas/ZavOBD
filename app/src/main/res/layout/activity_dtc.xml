@@ -11,7 +11,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
-        android:text="Scanning for codes..."
+        android:text="Connecting to service..."
         android:textSize="18sp"
         android:textStyle="bold" />
 
