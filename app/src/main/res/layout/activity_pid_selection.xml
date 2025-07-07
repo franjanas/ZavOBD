@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    tools:context=".PidSelectionActivity">
+
+    <TextView
+        android:id="@+id/tv_pid_selection_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:text="Select Parameters to Scan"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <CheckBox
+        android:id="@+id/checkbox_select_all"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/tv_pid_selection_title"
+        android:layout_marginTop="8dp"
+        android:text="Select All / Deselect All" />
+
+    <ListView
+        android:id="@+id/list_view_pids"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_above="@+id/btn_run_scan"
+        android:layout_below="@id/checkbox_select_all"
+        android:layout_marginTop="8dp"
+        android:choiceMode="multipleChoice" />
+
+    <Button
+        android:id="@+id/btn_run_scan"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginTop="16dp"
+        android:text="Run Scan" />
+
+</RelativeLayout>

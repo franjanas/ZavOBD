@@ -18,6 +18,12 @@
         android:theme="@style/Theme.ZavOBD"
         tools:targetApi="31">
         <activity
+            android:name=".PidResultsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".PidSelectionActivity"
+            android:exported="false" />
+        <activity
             android:name=".DashboardActivity"
             android:exported="false" />
 

@@ -12,6 +12,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.UUID;
 
 public class ObdService extends Service {
@@ -114,6 +115,13 @@ public class ObdService extends Service {
     public void setCommunicationMode(int mode) {
         if (communicationThread != null && communicationThread.isAlive()) {
             communicationThread.setMode(mode);
+        }
+    }
+
+    public void startCustomScan(ArrayList<PID> pids) {
+        if (communicationThread != null && communicationThread.isAlive()) {
+            communicationThread.setCustomScanPids(pids);
+            communicationThread.setMode(CommunicationThread.MODE_CUSTOM_SCAN);
         }
     }
 
