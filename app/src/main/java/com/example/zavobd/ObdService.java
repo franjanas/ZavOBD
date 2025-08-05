@@ -1,29 +1,34 @@
 package com.example.zavobd;
 
+import android.Manifest;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
+
+import androidx.core.app.ActivityCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager; // Added import
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.UUID;
 
+import com.example.zavobd.PID;
+
 public class ObdService extends Service {
     private static final String TAG = "ObdService";
 
-    // Public constants for Broadcasts
     public static final String ACTION_CONNECTION_SUCCESS = "com.example.zavobd.ACTION_CONNECTION_SUCCESS";
     public static final String ACTION_CONNECTION_FAILURE = "com.example.zavobd.ACTION_CONNECTION_FAILURE";
     public static final String EXTRA_FAILURE_MESSAGE = "EXTRA_FAILURE_MESSAGE";
-
-    // Public constants for Intent Actions
     public static final String ACTION_CONNECT = "com.example.zavobd.ACTION_CONNECT";
     public static final String ACTION_DISCONNECT = "com.example.zavobd.ACTION_DISCONNECT";
     public static final String EXTRA_DEVICE_ADDRESS = "EXTRA_DEVICE_ADDRESS";
@@ -40,7 +45,9 @@ public class ObdService extends Service {
     }
 
     @Override
-    public IBinder onBind(Intent intent) { return binder; }
+    public IBinder onBind(Intent intent) {
+        return binder;
+    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -58,13 +65,26 @@ public class ObdService extends Service {
     private void connectToDevice(String macAddress) {
         try {
             if (socket != null && socket.isConnected()) socket.close();
+            if (communicationThread != null && communicationThread.isAlive()) communicationThread.cancel();
 
             BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
             BluetoothDevice device = bluetoothAdapter.getRemoteDevice(macAddress);
             UUID sppUuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return;
+            }
             socket = device.createRfcommSocketToServiceRecord(sppUuid);
 
+            Log.d(TAG, "Attempting to connect socket...");
             socket.connect();
+            Log.d(TAG, "Socket connected. Performing sanity check...");
 
             Handler serviceHandler = new Handler(Looper.getMainLooper()) {
                 @Override
@@ -76,38 +96,49 @@ public class ObdService extends Service {
             };
 
             communicationThread = new CommunicationThread(socket, serviceHandler);
+
+            // The service now performs the sanity check using the thread
             String initialResponse = communicationThread.performSanityCheck();
 
-            if (initialResponse != null && initialResponse.contains("4100")) {
-                sendSuccessBroadcast();
+            if (initialResponse.contains("4100")) {
+                Log.d(TAG, "Sanity check PASSED. Broadcasting success.");
+                LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(ACTION_CONNECTION_SUCCESS)); // MODIFIED
+                // If successful, we now start the thread's main polling loop
                 communicationThread.start();
             } else {
+                Log.e(TAG, "Sanity check FAILED. Broadcasting failure.");
                 sendFailureBroadcast("This does not appear to be a valid OBD-II adapter.");
-                stopSelf();
+                // Add a delay before stopping the service
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    Log.d(TAG, "Stopping service after sanity check failure (delayed).");
+                    stopSelf();
+                }, 2000); // 100ms delay
             }
+        } catch (Exception e) {
+            // Log 1: Entry into catch block
+            Log.e(TAG, "CatchBlock: Entered. Exception: " + e.toString());
+            // Log 2: About to call sendFailureBroadcast
+            Log.d(TAG, "CatchBlock: About to call sendFailureBroadcast.");
 
-        } catch (IOException | SecurityException e) {
-            sendFailureBroadcast("Could not connect to the device. Please ensure it is on and in range.");
-            stopSelf();
+            sendFailureBroadcast("Could not connect. Is the device on and in range?");
+
+            // Log 3: Returned from sendFailureBroadcast
+            Log.d(TAG, "CatchBlock: Returned from sendFailureBroadcast.");
+
+            // Add a delay before stopping the service
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                Log.d(TAG, "Stopping service after connection exception (delayed).");
+                stopSelf();
+            }, 2000);
         }
-    }
 
-    // A separate method for success to keep things clean
-    private void sendSuccessBroadcast() {
-        Intent intent = new Intent(ACTION_CONNECTION_SUCCESS);
-        // --- THIS IS THE FIX ---
-        // We explicitly set the package to our own app's package.
-        intent.setPackage(getPackageName());
-        sendBroadcast(intent);
     }
 
     private void sendFailureBroadcast(String message) {
         Intent intent = new Intent(ACTION_CONNECTION_FAILURE);
         intent.putExtra(EXTRA_FAILURE_MESSAGE, message);
-        // --- THIS IS THE FIX ---
-        // We explicitly set the package to our own app's package.
-        intent.setPackage(getPackageName());
-        sendBroadcast(intent);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent); // MODIFIED
+        Log.d(TAG, "sendFailureBroadcast (Local): Broadcast sent for action: " + ACTION_CONNECTION_FAILURE + ", message: " + message); // MODIFIED Log
     }
 
     public void registerClient(Handler handler) { this.activityHandler = handler; }
@@ -118,10 +149,16 @@ public class ObdService extends Service {
         }
     }
 
+    public void clearDtcCodes() {
+        if (communicationThread != null && communicationThread.isAlive()) {
+            communicationThread.setMode(CommunicationThread.MODE_DTC_CLEAR);
+        }
+    }
+
+    // --- NEW METHOD to handle the request from PidResultsActivity ---
     public void startCustomScan(ArrayList<PID> pids) {
         if (communicationThread != null && communicationThread.isAlive()) {
-            communicationThread.setCustomScanPids(pids);
-            communicationThread.setMode(CommunicationThread.MODE_CUSTOM_SCAN);
+            communicationThread.startCustomScan(pids);
         }
     }
 
@@ -140,5 +177,6 @@ public class ObdService extends Service {
     public void onDestroy() {
         super.onDestroy();
         stopService();
+        Log.d(TAG, "ObdService destroyed.");
     }
 }

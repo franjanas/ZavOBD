@@ -40,9 +40,6 @@ public class FuelStatsActivity extends AppCompatActivity {
                 case CommunicationThread.MSG_CONNECTION_LOST:
                     showErrorDialog("Connection Lost", "Communication with the device has been lost.");
                     break;
-                case CommunicationThread.MSG_INVALID_DEVICE:
-                    showErrorDialog("Invalid Device", "This is not a valid OBD-II adapter.");
-                    break;
             }
         }
     };

@@ -30,7 +30,7 @@ public class PidResultsActivity extends AppCompatActivity {
     private final Handler uiHandler = new Handler(Looper.getMainLooper()) {
         @Override
         public void handleMessage(Message msg) {
-            if (msg.what == CommunicationThread.MSG_UPDATE_CUSTOM_RESULTS) {
+            if (msg.what == CommunicationThread.MSG_UPDATE_PID_RESULT) {
                 // When new data comes from the service, update our list
                 ArrayList<String> values = msg.getData().getStringArrayList("customResults");
                 if (values != null && values.size() == resultList.size()) {

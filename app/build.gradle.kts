@@ -41,4 +41,5 @@ dependencies {
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
     implementation("com.github.anastr:speedviewlib:1.6.0")
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
 }

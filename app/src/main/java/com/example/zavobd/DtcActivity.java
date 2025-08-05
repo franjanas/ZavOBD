@@ -20,10 +20,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DtcActivity extends AppCompatActivity {
-
     private TextView tvStatus;
     private ListView lvDtc;
-    private Button btnClearCodes;
+    private Button btnClearCodes, btnRefreshScan;
 
     private ArrayAdapter<String> dtcListAdapter;
     private ArrayList<String> dtcList = new ArrayList<>();
@@ -34,25 +33,19 @@ public class DtcActivity extends AppCompatActivity {
     private final Handler uiHandler = new Handler(Looper.getMainLooper()) {
         @Override
         public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case CommunicationThread.MSG_UPDATE_DTC_RESULT:
-                    Bundle bundle = (Bundle) msg.obj;
-                    List<String> codes = bundle.getStringArrayList("dtcCodes");
-                    dtcList.clear();
-                    if (codes == null || codes.isEmpty()) {
-                        tvStatus.setText("No stored trouble codes found.");
-                    } else {
-                        tvStatus.setText(codes.size() + " code(s) found:");
-                        dtcList.addAll(codes);
-                    }
-                    dtcListAdapter.notifyDataSetChanged();
-                    break;
-                case CommunicationThread.MSG_CONNECTION_LOST:
-                    showErrorDialog("Connection Lost", "Communication with the device has been lost.");
-                    break;
-                case CommunicationThread.MSG_INVALID_DEVICE:
-                    showErrorDialog("Invalid Device", "This is not a valid OBD-II adapter.");
-                    break;
+            if (msg.what == CommunicationThread.MSG_UPDATE_DTC_RESULT) {
+                // When we receive the results, update the UI
+                tvStatus.setText("Scan complete.");
+                Bundle bundle = (Bundle) msg.obj;
+                List<String> codes = bundle.getStringArrayList("dtcCodes");
+                dtcList.clear();
+                if (codes == null || codes.isEmpty()) {
+                    tvStatus.append(" No trouble codes found.");
+                } else {
+                    tvStatus.append(" " + codes.size() + " code(s) found:");
+                    dtcList.addAll(codes);
+                }
+                dtcListAdapter.notifyDataSetChanged();
             }
         }
     };
@@ -64,9 +57,8 @@ public class DtcActivity extends AppCompatActivity {
             obdService = binder.getService();
             isServiceBound = true;
             obdService.registerClient(uiHandler);
-            // Once connected, immediately request a DTC scan
-            tvStatus.setText("Scanning for codes...");
-            obdService.setCommunicationMode(CommunicationThread.MODE_DTC_SCAN);
+            // After connecting, immediately trigger the refresh button's logic
+            btnRefreshScan.performClick();
         }
         @Override
         public void onServiceDisconnected(ComponentName arg0) { isServiceBound = false; }
@@ -80,13 +72,47 @@ public class DtcActivity extends AppCompatActivity {
         tvStatus = findViewById(R.id.tv_dtc_status);
         lvDtc = findViewById(R.id.list_view_dtc);
         btnClearCodes = findViewById(R.id.btn_clear_codes);
+        btnRefreshScan = findViewById(R.id.btn_refresh_scan);
+
         dtcListAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, dtcList);
         lvDtc.setAdapter(dtcListAdapter);
 
-        // Note: The clear codes logic will need to be implemented in a future step
-        btnClearCodes.setOnClickListener(v -> {
-            Toast.makeText(this, "Clear codes feature not implemented yet.", Toast.LENGTH_SHORT).show();
+        btnRefreshScan.setOnClickListener(v -> {
+            if (isServiceBound) {
+                // When the button is clicked, clear the old results and tell the service to scan
+                tvStatus.setText("Scanning for codes...");
+                dtcList.clear();
+                dtcListAdapter.notifyDataSetChanged();
+                obdService.setCommunicationMode(CommunicationThread.MODE_DTC_SCAN);
+            } else {
+                Toast.makeText(this, "Service not connected.", Toast.LENGTH_SHORT).show();
+            }
         });
+
+        btnClearCodes.setOnClickListener(v -> {
+            if (isServiceBound) {
+                showClearCodesConfirmationDialog();
+            } else {
+                Toast.makeText(this, "Service not connected.", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void showClearCodesConfirmationDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Clear Trouble Codes?")
+                .setMessage("WARNING: This will turn off the Check Engine Light and erase important diagnostic data.")
+                .setPositiveButton("Clear Codes", (dialog, which) -> {
+                    if (isServiceBound) {
+                        tvStatus.setText("Clearing codes and re-scanning...");
+                        dtcList.clear();
+                        dtcListAdapter.notifyDataSetChanged();
+                        obdService.clearDtcCodes();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
     }
 
     @Override
@@ -100,30 +126,10 @@ public class DtcActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         if (isServiceBound) {
-            if (obdService != null) {
-                // Set the service back to idle mode so it's not wasting resources
-                obdService.setCommunicationMode(CommunicationThread.MODE_IDLE);
-                obdService.unregisterClient();
-            }
+            obdService.setCommunicationMode(CommunicationThread.MODE_IDLE);
+            obdService.unregisterClient();
             unbindService(serviceConnection);
             isServiceBound = false;
-        }
-    }
-
-    private void showErrorDialog(String title, String message) {
-        if (!isFinishing()) {
-            new AlertDialog.Builder(this)
-                    .setTitle(title)
-                    .setMessage(message)
-                    .setPositiveButton("Go to Connection Screen", (dialog, which) -> {
-                        dialog.dismiss();
-                        Intent intent = new Intent(DtcActivity.this, MainActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
-                        finish();
-                    })
-                    .setCancelable(false)
-                    .show();
         }
     }
 }

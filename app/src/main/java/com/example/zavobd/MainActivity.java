@@ -17,14 +17,18 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.Toast;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.util.ArrayList;
 import java.util.Set;
+
+import com.example.zavobd.ObdService;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -40,17 +44,34 @@ public class MainActivity extends AppCompatActivity {
     private final BroadcastReceiver connectionReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            if (progressDialog != null && progressDialog.isShowing()) {
-                progressDialog.dismiss();
+            android.util.Log.d("MainActivityReceiver", "onReceive triggered for action: " + intent.getAction());
+
+            if (progressDialog != null) {
+                if (progressDialog.isShowing()) {
+                    android.util.Log.d("MainActivityReceiver", "ProgressDialog is showing, attempting to dismiss.");
+                    progressDialog.dismiss();
+                    android.util.Log.d("MainActivityReceiver", "ProgressDialog dismiss called. Is it still showing? " + progressDialog.isShowing());
+                } else {
+                    android.util.Log.d("MainActivityReceiver", "ProgressDialog was not showing.");
+                }
+            } else {
+                android.util.Log.d("MainActivityReceiver", "ProgressDialog IS NULL at the start of onReceive.");
             }
 
             String action = intent.getAction();
             if (ObdService.ACTION_CONNECTION_SUCCESS.equals(action)) {
+                android.util.Log.d("MainActivityReceiver", "Connection SUCCESS path.");
                 Toast.makeText(MainActivity.this, "Connection Established", Toast.LENGTH_SHORT).show();
                 startActivity(new Intent(MainActivity.this, DashboardSelectionActivity.class));
             } else if (ObdService.ACTION_CONNECTION_FAILURE.equals(action)) {
+                android.util.Log.d("MainActivityReceiver", "Connection FAILURE path.");
                 String errorMessage = intent.getStringExtra(ObdService.EXTRA_FAILURE_MESSAGE);
-                showErrorDialog(errorMessage);
+                android.util.Log.d("MainActivityReceiver", "Error message: " + errorMessage);
+                showErrorDialog(errorMessage); // This shows the AlertDialog
+                // After calling showErrorDialog, check again if the progressDialog is somehow still around
+                if (progressDialog != null) {
+                    android.util.Log.d("MainActivityReceiver", "After showErrorDialog, is progressDialog showing? " + progressDialog.isShowing());
+                }
             }
         }
     };
@@ -123,17 +144,20 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(ObdService.ACTION_CONNECTION_SUCCESS);
         filter.addAction(ObdService.ACTION_CONNECTION_FAILURE);
 
-        // --- THIS IS THE FIX ---
-        // We add the required security flag as the third argument.
-        // ContextCompat handles checking the Android version for us.
-        ContextCompat.registerReceiver(this, connectionReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
+        // ContextCompat.registerReceiver(this, connectionReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED); // OLD
+        LocalBroadcastManager.getInstance(this).registerReceiver(connectionReceiver, filter); // NEW
+
+        Log.d("MainActivityLifecycle", "Receiver REGISTERED in onResume (Local). Receiver: " + connectionReceiver.toString());
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        unregisterReceiver(connectionReceiver);
+        Log.d("MainActivityLifecycle", "Receiver UNREGISTERING in onPause (Local). Receiver: " + connectionReceiver.toString());
+        // unregisterReceiver(connectionReceiver); // OLD
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(connectionReceiver); // NEW
     }
+
 
     private void showErrorDialog(String message) {
         new AlertDialog.Builder(this)

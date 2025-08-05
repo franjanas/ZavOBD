@@ -44,10 +44,6 @@ public class DashboardActivity extends AppCompatActivity {
                     // This case is triggered if the connection drops during use
                     showErrorDialog("Connection Lost", "Communication with the device has been lost.");
                     break;
-                case CommunicationThread.MSG_INVALID_DEVICE:
-                    // This case is triggered if the service's sanity check fails
-                    showErrorDialog("Invalid Device", "This is not a valid OBD-II adapter. Please connect to the correct device and try again.");
-                    break;
             }
         }
     };

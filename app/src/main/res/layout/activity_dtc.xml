@@ -11,7 +11,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
-        android:text="Connecting to service..."
+        android:text="Requesting scan..."
         android:textSize="18sp"
         android:textStyle="bold" />
 
@@ -19,20 +19,36 @@
         android:id="@+id/list_view_dtc"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/btn_clear_codes"
+        android:layout_above="@+id/button_layout"
         android:layout_below="@+id/tv_dtc_status"
         android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
         android:divider="@android:color/darker_gray"
         android:dividerHeight="1dp" />
 
-    <Button
-        android:id="@+id/btn_clear_codes"
+    <LinearLayout
+        android:id="@+id/button_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:layout_marginTop="16dp"
-        android:text="Clear Trouble Codes"
-        android:backgroundTint="@android:color/holo_red_dark"
-        android:textColor="@android:color/white"/>
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_refresh_scan"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Refresh Scan" />
+
+        <Button
+            android:id="@+id/btn_clear_codes"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_weight="1"
+            android:backgroundTint="@android:color/holo_red_dark"
+            android:text="Clear Codes"
+            android:textColor="@android:color/white" />
+    </LinearLayout>
 
 </RelativeLayout>
