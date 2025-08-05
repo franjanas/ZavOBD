@@ -11,6 +11,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
@@ -34,16 +35,20 @@ public class DtcActivity extends AppCompatActivity {
         @Override
         public void handleMessage(Message msg) {
             if (msg.what == CommunicationThread.MSG_UPDATE_DTC_RESULT) {
+                Log.d("DtcActivity", "uiHandler received MSG_UPDATE_DTC_RESULT");
                 // When we receive the results, update the UI
                 tvStatus.setText("Scan complete.");
                 Bundle bundle = (Bundle) msg.obj;
                 List<String> codes = bundle.getStringArrayList("dtcCodes");
+                Log.i("DtcActivity", "Received DTC codes in Activity: " + (codes != null ? codes.toString() : "null list"));
                 dtcList.clear();
                 if (codes == null || codes.isEmpty()) {
+                    Log.d("DtcActivity", "No DTC codes to display or list was empty/null.");
                     tvStatus.append(" No trouble codes found.");
                 } else {
                     tvStatus.append(" " + codes.size() + " code(s) found:");
                     dtcList.addAll(codes);
+                    Log.d("DtcActivity", "Displaying codes: " + dtcList.toString());
                 }
                 dtcListAdapter.notifyDataSetChanged();
             }

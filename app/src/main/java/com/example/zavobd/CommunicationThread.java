@@ -152,6 +152,7 @@ public class CommunicationThread extends Thread {
         fuelCmd.run(inputStream, outputStream);
         final double speedKmh = speedCmd.getResultValue();
         final double mafGramsPerSec = mafCmd.getMaf();
+        Log.d(TAG, "pollFuelStatsData - MAF from getMaf(): " + mafGramsPerSec + " g/s");
         final int fuelLevelPercent = fuelCmd.getResultValue();
         final double fuelLitersPerHour = (mafGramsPerSec * 3600) / (FUEL_DENSITY_GRAMS_PER_LITER * AIR_FUEL_RATIO);
         final double instantaneousLitersPer100km = (speedKmh > 0) ? (fuelLitersPerHour / speedKmh) * 100 : 0.0;
@@ -173,9 +174,12 @@ public class CommunicationThread extends Thread {
 
     private void pollDtcData() throws IOException, InterruptedException {
         DtcCommand dtcCmd = new DtcCommand();
+        Log.d(TAG, "Polling DTC data: Running DtcCommand...");
         dtcCmd.run(inputStream, outputStream);
         Bundle bundle = new Bundle();
-        bundle.putStringArrayList("dtcCodes", new ArrayList<>(dtcCmd.getFormattedCodes()));
+        ArrayList<String> codes = new ArrayList<>(dtcCmd.getFormattedCodes());
+        Log.i(TAG, "Polling DTC Data: Codes from DtcCommand.getFormattedCodes(): " + (codes != null ? codes.toString() : "null")); // SAFER LOG
+        bundle.putStringArrayList("dtcCodes", codes);
         Message msg = serviceHandler.obtainMessage(MSG_UPDATE_DTC_RESULT);
         msg.obj = bundle;
         serviceHandler.sendMessage(msg);
