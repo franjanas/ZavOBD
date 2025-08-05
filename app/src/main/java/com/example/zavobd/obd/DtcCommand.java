@@ -1,5 +1,7 @@
 package com.example.zavobd.obd;
 
+import android.util.Log;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,6 +16,7 @@ public class DtcCommand extends AbstractObdCommand {
 
     @Override
     protected void performCalculations() {
+        Log.i("DtcCommand", "performCalculations started. Raw response: '" + rawResponse + "'");
         // Clear any previous codes
         troubleCodes.clear();
 
@@ -22,17 +25,23 @@ public class DtcCommand extends AbstractObdCommand {
         // "0133" and "0171" are two separate codes.
         if (rawResponse != null && rawResponse.startsWith("43")) {
             String codes = rawResponse.substring(2); // Remove the "43" header
+            Log.i("DtcCommand", "Codes string after removing '43': '" + codes + "'");
             // Loop through the response string, taking 4 characters (2 bytes) at a time.
             for (int i = 0; i < codes.length(); i += 4) {
                 if (i + 4 <= codes.length()) {
                     String hexCode = codes.substring(i, i + 4);
                     // Ignore the "0000" padding that some cars send
+                    Log.d("DtcCommand", "Processing hexCode: '" + hexCode + "'");
                     if (!hexCode.equals("0000")) {
                         troubleCodes.add(formatDtc(hexCode));
+                        Log.d("DtcCommand", "Added formatted DTC: '" + formatDtc(hexCode) + "'");
                     }
                 }
             }
+        } else {
+            Log.w("DtcCommand", "rawResponse is null or does not start with '43'. rawResponse: '" + rawResponse + "'");
         }
+        Log.i("DtcCommand", "performCalculations finished. Trouble codes list: " + troubleCodes.toString());
     }
 
     // This method formats a 4-char hex code (e.g., "0133") into a standard DTC (e.g., "P0133")
@@ -79,9 +88,13 @@ public class DtcCommand extends AbstractObdCommand {
     // Override the default getFormattedResult to be more descriptive
     @Override
     public String getFormattedResult() {
+        Log.i("DtcCommand", "getFormattedResult called. Current troubleCodes: " + troubleCodes.toString());
         if (troubleCodes.isEmpty()) {
+            Log.i("DtcCommand", "Trouble codes list is empty. Returning 'No trouble codes found.'");
             return "No trouble codes found.";
         }
-        return String.join(", ", troubleCodes);
+        String result = String.join(", ", troubleCodes);
+        Log.i("DtcCommand", "Formatted result string: '" + result + "'"); // Assuming 'result' holds the String.join output
+        return result;
     }
 }

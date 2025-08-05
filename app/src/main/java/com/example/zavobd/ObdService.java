@@ -162,6 +162,19 @@ public class ObdService extends Service {
         }
     }
 
+    // --- NEW METHOD to request a DTC scan ---
+    public void requestDtcScan() {
+        if (communicationThread != null && communicationThread.isAlive()) {
+            Log.d(TAG, "Setting CommunicationThread mode to MODE_DTC_SCAN");
+            communicationThread.setMode(CommunicationThread.MODE_DTC_SCAN);
+        } else {
+            Log.e(TAG, "Cannot request DTC scan, communicationThread is null or not alive.");
+            // Optionally, send a failure broadcast back to the UI here if needed
+            // sendFailureBroadcast("Service not ready for DTC scan.");
+        }
+    }
+
+
     private void stopService() {
         if (communicationThread != null) {
             communicationThread.cancel();
