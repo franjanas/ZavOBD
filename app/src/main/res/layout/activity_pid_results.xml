@@ -19,7 +19,7 @@
     <ListView
         android:id="@+id/list_view_pid_results"
         android:layout_width="match_parent"
-        android.layout_height="match_parent"
+        android:layout_height="match_parent"
         android:layout_below="@id/tv_results_status"
         android:layout_marginTop="16dp" />
 
